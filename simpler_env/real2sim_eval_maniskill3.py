@@ -36,6 +36,8 @@ class Args:
     """The environment ID of the task you want to simulate. Can be one of
     PutCarrotOnPlateInScene-v1, PutSpoonOnTableClothInScene-v1, StackGreenCubeOnYellowCubeBakedTexInScene-v1, PutEggplantInBasketScene-v1"""
 
+    robot: Annotated[Optional[str], tyro.conf.arg(aliases=["-r"])] = None
+
     shader: str = "default"
 
     num_envs: int = 1
@@ -81,7 +83,8 @@ def main():
         args.env_id,
         obs_mode="rgb+segmentation",
         num_envs=args.num_envs,
-        sensor_configs=sensor_configs
+        sensor_configs=sensor_configs,
+        robot=args.robot if args.robot is not None else None,
     )
     sim_backend = 'gpu' if env.device.type == 'cuda' else 'cpu'
 
@@ -89,13 +92,14 @@ def main():
     model = None
     try:
 
-        policy_setup = "widowx_bridge"
+        # policy_setup = "widowx_bridge"
+        policy_setup = "droid"
         if args.model is None:
             pass
         else:
             from simpler_env.policies.rt1.rt1_model import RT1Inference
             from simpler_env.policies.octo.octo_model import OctoInference
-            if args.model == "octo-base" or args.model == "octo-small":
+            if args.model == "octo-base" or args.model == "octo-small" or args.model == "octo-droid":
                 model = OctoInference(model_type=args.model, policy_setup=policy_setup, init_rng=args.seed, action_scale=1)
             elif args.model == "rt-1x":
                 ckpt_path=args.ckpt_path

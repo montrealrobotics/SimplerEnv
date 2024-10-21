@@ -27,14 +27,16 @@ ENVIRONMENTS = [
     "widowx_carrot_on_plate",
     "widowx_stack_cube",
     "widowx_put_eggplant_in_basket",
+    "dummy_env",
 ]
 
 ENVIRONMENT_MAP = {
-    "google_robot_pick_coke_can": ("GraspSingleOpenedCokeCanInScene-v0", {}),
+    "google_robot_pick_coke_can": ("GraspSingleDummy-v0", {"robot": "panda_robotiq", "scene_name": "google_pick_coke_can_1_v4", "control_mode": "pd_joint_delta_pos"}),
     "google_robot_pick_horizontal_coke_can": (
         "GraspSingleOpenedCokeCanInScene-v0",
         {"lr_switch": True},
     ),
+    "dummy_env": ("EmptyEnvCustom-v0", {"robot": "panda", "control_mode": "pd_ee_delta_pose"}),
     "google_robot_pick_vertical_coke_can": (
         "GraspSingleOpenedCokeCanInScene-v0",
         {"laid_vertically": True},
@@ -74,6 +76,6 @@ def make(task_name):
     """Creates simulated eval environment from task name."""
     assert task_name in ENVIRONMENTS, f"Task {task_name} is not supported. Environments: \n {ENVIRONMENTS}"
     env_name, kwargs = ENVIRONMENT_MAP[task_name]
-    kwargs["prepackaged_config"] = True
+    kwargs["prepackaged_config"] = False
     env = gym.make(env_name, obs_mode="rgbd", **kwargs)
     return env

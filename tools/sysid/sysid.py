@@ -15,10 +15,12 @@ from transforms3d.quaternions import axangle2quat, quat2axangle, quat2mat
 
 def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_mode):
     import gymnasium as gym
-    import mani_skill2_real2sim.envs
+    # import mani_skill2_real2sim.envs
+    import mani_skill.envs
+    from mani_skill.utils.structs import Pose as MPose
     from sapien.core import Pose
 
-    assert robot in ["google_robot_static", "widowx"]
+    assert robot in ["google_robot_static", "widowx", "panda_robotiq"]
     if robot == "google_robot_static":
         # append dummy stiffness & damping for the camera links in google robot, which do not affect the results
         arm_stiffness = np.concatenate([arm_stiffness, [2000, 2000]])
@@ -28,16 +30,22 @@ def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_
         sim_freq, control_freq = 252, 3
     elif robot == "widowx":
         sim_freq, control_freq = 500, 5
+    elif robot == "panda_robotiq":
+        sim_freq, control_freq = 250, 5
     env = gym.make(
-        "GraspSingleDummy-v0",
+        # "GraspSingleDummy-v0",
+        "Empty-v1",
         control_mode=control_mode,
         obs_mode="rgbd",
-        robot=robot,
-        sim_freq=sim_freq,
-        control_freq=control_freq,
+        # robot=robot,
+        robot_uids=robot,
+        # sim_freq=sim_freq,
+        # control_freq=control_freq,
         max_episode_steps=50,
     )
+    print("Env created!")
     # set arm stiffness and damping
+    env = env.unwrapped
     env.agent.controller.controllers["arm"].config.stiffness = arm_stiffness
     env.agent.controller.controllers["arm"].config.damping = arm_damping
     env.agent.controller.controllers["arm"].set_drive_property()
@@ -49,7 +57,8 @@ def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_
     env.agent.robot.set_pose(Pose([0, 0, 1]))
 
     def get_tcp_pose_at_robot_base():
-        tcp_pose_at_robot_base = env.agent.robot.pose.inv() * env.tcp.pose
+        # tcp_pose_at_robot_base = env.agent.robot.pose.inv() * env.tcp.pose
+        tcp_pose_at_robot_base = env.agent.robot.pose.inv() * env.agent.tcp.pose
         return tcp_pose_at_robot_base
 
     # unroll the episode and record the tcp (end-effector tool-center-point) poses
@@ -63,8 +72,8 @@ def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_
             # At the beginning of episode, set the end-effector pose to be the same as the first observation
             controller = env.agent.controller.controllers["arm"]
             cur_qpos = env.agent.robot.get_qpos()
-            init_arm_qpos = controller.compute_ik(gt_tcp_pose_at_robot_base)
-            cur_qpos[controller.joint_indices] = init_arm_qpos
+            init_arm_qpos = controller.kinematics.compute_ik(target_pose=MPose.create(gt_tcp_pose_at_robot_base), q0=cur_qpos)
+            cur_qpos[..., controller.active_joint_indices] = init_arm_qpos
             env.agent.reset(cur_qpos)
             tcp_pose_at_robot_base = get_tcp_pose_at_robot_base()
 
@@ -86,6 +95,11 @@ def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_
             # the recorded demonstration actions are in the form of raw, pitch, yaw euler angles
             gt_action_rotation_ax, gt_action_rotation_angle = euler2axangle(*gt_action_rotation_delta)
             gt_action_rotation_axangle = gt_action_rotation_ax * gt_action_rotation_angle
+        elif robot == "panda_robotiq":
+            # the recorded demonstration actions are in the form of raw, pitch, yaw euler angles
+            # gt_action_rotation_ax, gt_action_rotation_angle = euler2axangle(*gt_action_rotation_delta)
+            # gt_action_rotation_axangle = gt_action_rotation_ax * gt_action_rotation_angle
+            gt_action_rotation_axangle = gt_action_rotation_delta
 
         action = np.concatenate(
             [
@@ -106,7 +120,7 @@ def calc_pose_err_single_ep(episode, arm_stiffness, arm_damping, robot, control_
         err = raw_transl_err
         this_traj_raw_transl_err.append(raw_transl_err)
 
-        R_pred = quat2mat(tcp_pose_at_base.q)
+        R_pred = quat2mat(tcp_pose_at_base.q[0])
         R_gt = quat2mat(gt_tcp_pose_at_base.q)
         raw_rot_err = np.arcsin(
             np.clip(
@@ -185,7 +199,7 @@ if __name__ == "__main__":
         --log-path /home/xuanlin/Downloads/opt_results_bridge.txt --robot widowx
     """
 
-    os.environ["DISPLAY"] = ""
+    os.environ["DISPLAY"] = ":1"
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset-path", type=str, default="sysid_log/sysid_dataset.pkl")
@@ -234,6 +248,14 @@ if __name__ == "__main__":
         # damping_low = np.array([250, 150, 100, 240, 150, 200])
         # init_stiffness = np.array([1169.7891719504198, 730.0, 808.4601346394447, 1229.1299089624076, 1272.2760456418862, 1056.3326605132252])
         # init_damping = np.array([330.0, 180.0, 152.12036565582588, 309.6215302722146, 201.04998711007383, 269.51458932695414])
+    elif args.robot == "panda_robotiq":
+        control_mode = "pd_ee_pose"
+        stiffness_high = np.array([1400, 1400, 1400, 1400, 1400, 1400, 1400])
+        stiffness_low = np.array([600, 600, 600, 600, 600, 600, 600])
+        damping_high = np.array([250, 250, 250, 250, 250, 250, 250])
+        damping_low = np.array([50, 50, 50, 50, 50, 50, 50])
+        init_stiffness = np.array([1000, 1000, 1000, 1000, 1000, 1000, 1000])
+        init_damping = np.array([100, 100, 100, 100, 100, 100, 100])
     else:
         raise NotImplementedError()
 

@@ -12,7 +12,7 @@ from transforms3d.axangles import mat2axangle
 from transforms3d.euler import euler2axangle, euler2mat, euler2quat
 from transforms3d.quaternions import axangle2quat, mat2quat, quat2axangle, quat2mat
 
-DATASETS = ["fractal20220817_data", "bridge"]
+DATASETS = ["fractal20220817_data", "bridge", "droid"]
 
 
 def dataset2path(dataset_name):
@@ -20,6 +20,8 @@ def dataset2path(dataset_name):
         version = "1.0.0"
     elif dataset_name == "language_table":
         version = "0.0.1"
+    elif dataset_name == "droid":
+        return "/home/artur/droid_100/1.0.0/"
     else:
         version = "0.1.0"
     return f"gs://gresearch/robotics/{dataset_name}/{version}"
@@ -65,6 +67,8 @@ if __name__ == "__main__":
             3289,
         ]
     elif dataset_name == "bridge":
+        episode_ids = list(range(12))
+    elif dataset_name == "droid":
         episode_ids = list(range(12))
     else:
         raise NotImplementedError()
@@ -125,6 +129,33 @@ if __name__ == "__main__":
                     "action_world_vector": np.array(episode_step["action"]["world_vector"], dtype=np.float64),
                     "action_rotation_delta": np.array(episode_step["action"]["rotation_delta"], dtype=np.float64),
                     # 'action_gripper': np.array(2.0 * (np.array(episode_step['action']['open_gripper'])[None]) - 1.0, dtype=np.float64), # 1=open; -1=close
+                }
+            elif dataset_name == "droid":
+                mat_transform = np.array(
+                    [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
+                    dtype=np.float64,
+                )
+                base_pose_tool_reached = Pose(
+                    p=episode_step["observation"]["cartesian_position"][:3],
+                    q=mat2quat(
+                        euler2mat(
+                            *np.array(
+                                episode_step["observation"]["cartesian_position"][3:6],
+                                dtype=np.float64,
+                            )
+                        )
+                        @ mat_transform
+                    ),
+                )
+                save_episode_step = {
+                    "base_pose_tool_reached": np.concatenate(
+                        [
+                            np.array(base_pose_tool_reached.p, dtype=np.float64),
+                            np.array(base_pose_tool_reached.q, dtype=np.float64),
+                        ]
+                    ),  # reached tool pose under the robot base frame, [xyz, quat(wxyz)]
+                    "action_world_vector": np.array(episode_step["action_dict"]["cartesian_position"][:3], dtype=np.float64),
+                    "action_rotation_delta": np.array(episode_step["action_dict"]["cartesian_position"][3:6], dtype=np.float64),
                 }
             else:
                 raise NotImplementedError()
