@@ -93,7 +93,7 @@ def main():
     try:
 
         # policy_setup = "widowx_bridge"
-        policy_setup = "droid"
+        policy_setup = "panda_robotiq"
         if args.model is None:
             pass
         else:

@@ -131,10 +131,10 @@ if __name__ == "__main__":
                     # 'action_gripper': np.array(2.0 * (np.array(episode_step['action']['open_gripper'])[None]) - 1.0, dtype=np.float64), # 1=open; -1=close
                 }
             elif dataset_name == "droid":
-                mat_transform = np.array(
-                    [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
-                    dtype=np.float64,
-                )
+                # mat_transform = np.array(
+                #     [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
+                #     dtype=np.float64,
+                # )
                 base_pose_tool_reached = Pose(
                     p=episode_step["observation"]["cartesian_position"][:3],
                     q=mat2quat(
@@ -144,7 +144,7 @@ if __name__ == "__main__":
                                 dtype=np.float64,
                             )
                         )
-                        @ mat_transform
+                        # @ mat_transform
                     ),
                 )
                 save_episode_step = {
