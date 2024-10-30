@@ -144,7 +144,7 @@ def main():
             if model is not None:
                 start_time = time.time()
                 raw_action, action = model.step(images[-1], instruction)
-                action = torch.cat([action["world_vector"], action["rot_axangle"], action["gripper"]], dim=1)
+                action = torch.cat([action["world_vector"], action["rot_euler"], action["gripper"]], dim=1)
                 timers["inference"] += time.time() - start_time
             else:
                 action = env.action_space.sample()

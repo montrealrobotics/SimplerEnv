@@ -164,7 +164,7 @@ class OctoInference:
             raw_action: dict; raw policy action output
             action: dict; processed action to be sent to the maniskill2 environment, with the following keys:
                 - 'world_vector': np.ndarray of shape (3,), xyz translation of robot end-effector
-                - 'rot_axangle': np.ndarray of shape (3,), axis-angle representation of end-effector rotation
+                - 'rot_euler': np.ndarray of shape (3,), euler-angle representation of end-effector rotation
                 - 'gripper': np.ndarray of shape (1,), gripper action
                 - 'terminate_episode': np.ndarray of shape (1,), 1 if episode should be terminated, 0 otherwise
         """
@@ -184,7 +184,7 @@ class OctoInference:
         self.rng, key = jax.random.split(self.rng)  # each shape [2,]
         # print("octo local rng", self.rng, key)
 
-        input_observation = {"image_primary": images, "pad_mask": pad_mask}
+        input_observation = {"image_primary": images, "timestep_pad_mask": pad_mask}
         # images.shape (b, h, w, c, 3),  pad_mask.shape (b, h)
         norm_raw_actions = self.model.sample_actions(
             input_observation,
@@ -209,15 +209,7 @@ class OctoInference:
         action = {}
         action["world_vector"] = raw_action["world_vector"] * self.action_scale
         # action_rotation_delta = np.asarray(raw_action["rotation_delta"], dtype=np.float64)
-        # roll, pitch, yaw = action_rotation_delta
-        # action_rotation_ax, action_rotation_angle = euler2axangle(roll, pitch, yaw)
-        # action_rotation_axangle = action_rotation_ax * action_rotation_angle
-        # action["rot_axangle"] = action_rotation_axangle * self.action_scale
-        # TODO: is there a better conversion from euler angles to axis angle?
-
-        # NOTE: Original code converts to axis-angle rotation, but I am not sure why
-        # action["rot_axangle"] = rotation_conversions.matrix_to_axis_angle(rotation_conversions.euler_angles_to_matrix(raw_action["rotation_delta"], "XYZ"))
-        action["rot_axangle"] = raw_action["rotation_delta"]
+        action["rot_euler"] = raw_action["rotation_delta"]
         if self.policy_setup == "google_robot":
             current_gripper_action = raw_action["open_gripper"]
 
